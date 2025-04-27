@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Personas</title>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        #registro, #listado { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; }
+        input { margin-bottom: 10px; display: block; padding: 8px; }
+        button { padding: 10px 15px; cursor: pointer; margin-right: 5px; }
+        ul { list-style: none; padding: 0; }
+        li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+        li span { flex-grow: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="registro">
+        <h2>Registrar Persona</h2>
+        <input type="text" id="nombre" placeholder="Nombre">
+        <input type="text" id="apellido" placeholder="Apellido">
+        <input type="number" id="anioNacimiento" placeholder="Año de Nacimiento">
+        <button id="guardar">Guardar Persona</button>
+    </div>
+
+    <div id="listado">
+        <h2>Personas Registradas</h2>
+        <ul id="personasLista"></ul>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar la base de datos Dexie
+            const db = new Dexie("PersonasDB");
+            db.version(1).stores({
+                personas: '++id, nombre, apellido, anioNacimiento'
+            });
+
+            const nombreInput = document.getElementById('nombre');
+            const apellidoInput = document.getElementById('apellido');
+            const anioNacimientoInput = document.getElementById('anioNacimiento');
+            const guardarBtn = document.getElementById('guardar');
+            const personasLista = document.getElementById('personasLista');
+
+            guardarBtn.addEventListener('click', async () => {
+                const nombre = nombreInput.value.trim();
+                const apellido = apellidoInput.value.trim();
+                const anioNacimiento = parseInt(anioNacimientoInput.value);
+
+                if (nombre && apellido && anioNacimiento) {
+                    try {
+                        await db.personas.add({ nombre, apellido, anioNacimiento });
+                        nombreInput.value = '';
+                        apellidoInput.value = '';
+                        anioNacimientoInput.value = '';
+                        listarPersonas(); // Volver a listar después de guardar
+                    } catch (error) {
+                        console.error("Error al guardar la persona:", error);
+                    }
+                } else {
+                    alert("Por favor, complete todos los campos.");
+                }
+            });
+
+            async function listarPersonas() {
+                personasLista.innerHTML = ''; // Limpiar la lista anterior
+                const personas = await db.personas.toArray();
+
+                personas.forEach(persona => {
+                    const edad = calcularEdad(persona.anioNacimiento);
+                    const listItem = document.createElement('li');
+                    const infoSpan = document.createElement('span');
+                    infoSpan.textContent = `${persona.nombre} ${persona.apellido} (Edad: ${edad} años)`;
+
+                    const eliminarBtn = document.createElement('button');
+                    eliminarBtn.textContent = 'Eliminar';
+                    eliminarBtn.addEventListener('click', async () => {
+                        await eliminarPersona(persona.id);
+                    });
+
+                    listItem.appendChild(infoSpan);
+                    listItem.appendChild(eliminarBtn);
+                    personasLista.appendChild(listItem);
+                });
+            }
+
+            async function eliminarPersona(id) {
+                try {
+                    await db.personas.delete(id);
+                    listarPersonas(); // Volver a listar después de eliminar
+                } catch (error) {
+                    console.error("Error al eliminar la persona:", error);
+                }
+            }
+
+            function calcularEdad(anioNacimiento) {
+                const anioActual = new Date().getFullYear();
+                return anioActual - anioNacimiento;
+            }
+
+            // Listar las personas al cargar la página
+            listarPersonas();
+        });
+    </script>
+
+</body>
+</html>
